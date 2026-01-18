@@ -1,0 +1,11 @@
+torch
+torchvision
+diffusers
+transformers
+accelerate
+safetensors
+datasets
+pillow
+tqdm
+# Optional: wandb
+peft
