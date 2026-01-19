@@ -17,28 +17,42 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--image_path", type=str, required=True)
     parser.add_argument("--stage1_ckpt", type=str, required=True)
     parser.add_argument("--stage2_ckpt", type=str, required=True)
+
     parser.add_argument(
         "--prompt",
         type=str,
         default=(
-            "Write a long, highly detailed caption. No speculation."
+            "Write a long, highly detailed, factual caption of the image."
         ),
     )
-    parser.add_argument("--max_new_tokens", type=int, default=80)
-    parser.add_argument("--min_new_tokens", type=int, default=20)
-    parser.add_argument("--num_beams", type=int, default=3)
-    parser.add_argument("--length_penalty", type=float, default=1.1)
+
+    parser.add_argument("--max_new_tokens", type=int, default=200)
+    parser.add_argument("--min_new_tokens", type=int, default=60)
+
+    parser.add_argument("--num_beams", type=int, default=5)
+    parser.add_argument("--length_penalty", type=float, default=1.2)
+    parser.add_argument(
+        "--early_stopping",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Stop when all beams hit EOS (usually speeds up). Use --no-early_stopping to disable.",
+    )
+
     parser.add_argument("--repetition_penalty", type=float, default=1.1)
     parser.add_argument("--no_repeat_ngram_size", type=int, default=3)
+
     parser.add_argument("--do_sample", action="store_true")
     parser.add_argument("--temperature", type=float, default=0.8)
     parser.add_argument("--top_p", type=float, default=0.9)
     parser.add_argument("--top_k", type=int, default=50)
+
+    parser.add_argument("--image_size", type=int, default=128)
+
     parser.add_argument("--regen_image", action="store_true")
     parser.add_argument("--sd_model_id", type=str, default="Manojb/stable-diffusion-2-1-base")
     parser.add_argument("--num_inference_steps", type=int, default=30)
     parser.add_argument("--guidance_scale", type=float, default=7.5)
-    parser.add_argument("--seed", type=int, default=-1)
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--out_image", type=str, default="outputs/regenerated.png")
     return parser.parse_args()
 
@@ -67,7 +81,7 @@ def main() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     image = Image.open(args.image_path).convert("RGB")
-    image_tensor = build_transform(512)(image).unsqueeze(0).to(device)
+    image_tensor = build_transform(args.image_size)(image).unsqueeze(0).to(device)
 
     vision_encoder = VisionToTextEmb().to(device)
     state = torch.load(args.stage1_ckpt, map_location="cpu")
@@ -106,6 +120,7 @@ def main() -> None:
             device=device,
             dtype=torch.long,
         )
+
         gen_kwargs = {
             "input_ids": dummy_ids,
             "inputs_embeds": inputs_embeds,
@@ -113,11 +128,13 @@ def main() -> None:
             "max_new_tokens": args.max_new_tokens,
             "min_new_tokens": args.min_new_tokens,
             "num_beams": args.num_beams,
-            "do_sample": args.do_sample,
             "length_penalty": args.length_penalty,
+            "early_stopping": args.early_stopping,
+            "do_sample": args.do_sample,
             "repetition_penalty": args.repetition_penalty,
             "no_repeat_ngram_size": args.no_repeat_ngram_size,
             "pad_token_id": tokenizer.eos_token_id,
+            "eos_token_id": tokenizer.eos_token_id,
         }
         if args.do_sample:
             gen_kwargs.update(
@@ -127,6 +144,7 @@ def main() -> None:
                     "top_k": args.top_k,
                 }
             )
+
         outputs = captioner.llm.generate(**gen_kwargs)
 
     generated = outputs[:, inputs_embeds.shape[1] :]

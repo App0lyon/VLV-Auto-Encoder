@@ -68,7 +68,7 @@ python train_stage2.py --stage1_ckpt ... --finetune_encoder
 Inference
 Generate a caption for a single image:
 ```bash
-python infer.py --image_path path\to\image.jpg --stage1_ckpt outputs\stage1\vision_encoder_*.pt --stage2_ckpt outputs\stage2\captioner_*.pt --max_new_tokens 80 --num_beams 3
+python infer.py --image_path path\to\image.jpg --stage1_ckpt outputs\stage1\vision_encoder_*.pt --stage2_ckpt outputs\stage2\captioner_*.pt --num_beams 5 --length_penalty 1.2 --max_new_tokens 220 --min_new_tokens 70
 ```
 
 Regenerate an image from the generated caption:
