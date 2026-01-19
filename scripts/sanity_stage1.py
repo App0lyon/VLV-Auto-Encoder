@@ -43,7 +43,6 @@ def main() -> None:
         subset_ratio=0.01,
         seed=args.seed,
         image_size=args.image_size,
-        use_hf=True,
     )
     dataloader = torch.utils.data.DataLoader(
         dataset,

@@ -31,9 +31,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 Data
-The training/eval code can load COCO captions in two ways:
-- HuggingFace datasets (default). No local data_dir required.
-- Local COCO 2017 folders if datasets is unavailable or you want local data.
+The training/eval code loads COCO 2017 from local folders (data_dir required).
 
 Local COCO layout (data_dir):
 - data_dir/
@@ -54,12 +52,12 @@ python download_coco2017.py --all --out_dir data/coco2017
 Training
 Stage 1: distill conditioning from Stable Diffusion 2.1
 ```bash
-python train_stage1.py --batch_size 16 --epochs 1 --subset_ratio 0.1 --output_dir outputs/stage1 --mixed_precision fp16 --image_size 128 --data_dir data/coco2017/train2017 --sd_model_id Manojb/stable-diffusion-2-1-base 
+python train_stage1.py --subset_ratio 1.0 --epochs 3 --batch_size 32 --lr 1e-4 --mixed_precision fp16 --image_size 128 --data_dir data/coco2017/train2017 --sd_model_id Manojb/stable-diffusion-2-1-base 
 ```
 
 Stage 2: captioner training
 ```bash
-python train_stage2.py --stage1_ckpt outputs/stage1/vision_encoder_*.pt --llm_name distilgpt2 --batch_size 16 --epochs 1 --subset_ratio 0.1 --output_dir outputs/stage2 --max_length 64 --image_size 128 --data_dir data/coco2017/train2017 --mixed_precision fp16
+python train_stage2.py --stage1_ckpt .\outputs\stage1\vision_encoder_*.pt --subset_ratio 1.0 --epochs 3 --batch_size 8 --lr 5e-5 --mixed_precision fp16 --image_size 128 --output_dir outputs/stage2 --data_dir data/coco2017/train2017
 ```
 
 To finetune the vision encoder jointly:
@@ -70,23 +68,18 @@ python train_stage2.py --stage1_ckpt ... --finetune_encoder
 Inference
 Generate a caption for a single image:
 ```bash
-python infer.py 
-  --image_path path\to\image.jpg 
-  --stage1_ckpt outputs\stage1\vision_encoder_*.pt 
-  --stage2_ckpt outputs\stage2\captioner_*.pt 
-  --max_new_tokens 32 
-  --num_beams 1
+python infer.py --image_path path\to\image.jpg --stage1_ckpt outputs\stage1\vision_encoder_*.pt --stage2_ckpt outputs\stage2\captioner_*.pt --max_new_tokens 80 --num_beams 3
+```
+
+Regenerate an image from the generated caption:
+```bash
+python infer.py --image_path path\to\image.jpg --stage1_ckpt outputs\stage1\vision_encoder_*.pt --stage2_ckpt outputs\stage2\captioner_*.pt --regen_image --out_image outputs\regenerated.png
 ```
 
 Evaluation
 Quick captioning eval on COCO val (CLIP score or simple BLEU):
 ```bash
-python eval_captioning.py ^
-  --stage1_ckpt outputs\stage1\vision_encoder_*.pt ^
-  --stage2_ckpt outputs\stage2\captioner_*.pt ^
-  --metric clip ^
-  --num_samples 2000 ^
-  --out_jsonl outputs\coco_val_preds.jsonl
+python eval_captioning.py--stage1_ckpt outputs\stage1\vision_encoder_*.pt--stage2_ckpt outputs\stage2\captioner_*.pt--metric clip--num_samples 2000--out_jsonl outputs\coco_val_preds.json
 ```
 
 Outputs and checkpoints
@@ -102,7 +95,7 @@ Outputs and checkpoints
 
 Architecture (code map)
 Data
-- `src/vlv/data/coco.py`: COCO datasets + transforms + HF fallback. Two dataset
+- `src/vlv/data/coco.py`: COCO datasets + transforms (local only). Two dataset
   classes:
   - `CocoImagesOnlyDataset` for stage 1 (images only)
   - `CocoImageCaptionDataset` for stage 2 (images + captions)

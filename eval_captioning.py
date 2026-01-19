@@ -12,11 +12,6 @@ from transformers import AutoTokenizer, CLIPModel, CLIPProcessor
 from src.vlv.models.emb_to_caption import EmbeddingCaptioner
 from src.vlv.models.vision_to_textemb import VisionToTextEmb
 
-try:
-    from datasets import load_dataset
-except Exception:
-    load_dataset = None
-
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Mini captioning evaluation on COCO val.")
@@ -62,27 +57,13 @@ def load_samples(
     rng = random.Random(seed)
     samples: List[Dict[str, Any]] = []
 
-    if load_dataset is not None and data_dir is None:
-        ds = load_dataset("coco_captions", "2017", split="validation")
-        indices = list(range(len(ds)))
-        rng.shuffle(indices)
-        if subset_ratio < 1.0:
-            indices = indices[: max(1, int(len(indices) * subset_ratio))]
-        if num_samples > 0:
-            indices = indices[: num_samples]
-        for i in indices:
-            row = ds[i]
-            samples.append(
-                {
-                    "image": row["image"],
-                    "caption": row.get("caption", ""),
-                    "image_id": row.get("image_id", i),
-                }
-            )
-        return samples
+    if data_dir is None:
+        default_data_dir = os.path.join(os.getcwd(), "data", "coco2017")
+        if os.path.isdir(default_data_dir):
+            data_dir = default_data_dir
 
     if data_dir is None:
-        raise RuntimeError("data_dir is required when datasets is unavailable.")
+        raise RuntimeError("data_dir is required for local COCO loading.")
 
     ann_path = os.path.join(data_dir, "annotations", "captions_val2017.json")
     img_dir = os.path.join(data_dir, "val2017")

@@ -84,7 +84,6 @@ def main() -> None:
         subset_ratio=args.subset_ratio,
         seed=args.seed,
         image_size=args.image_size,
-        use_hf=True,
     )
     dataloader = DataLoader(
         dataset,

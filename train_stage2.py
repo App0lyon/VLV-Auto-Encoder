@@ -17,7 +17,7 @@ from src.vlv.models.vision_to_textemb import VisionToTextEmb
 @dataclass
 class TrainArgs:
     stage1_ckpt: str
-    llm_name: str = "distilgpt2"
+    llm_name: str = "gpt2-medium"
     batch_size: int = 8
     lr: float = 1e-4
     epochs: int = 1
@@ -67,6 +67,9 @@ def save_checkpoint(
 
 
 def main() -> None:
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+
     args = parse_args()
     accelerator = Accelerator(mixed_precision=args.mixed_precision)
     torch.manual_seed(args.seed)
@@ -77,7 +80,6 @@ def main() -> None:
         subset_ratio=args.subset_ratio,
         seed=args.seed,
         image_size=args.image_size,
-        use_hf=True,
     )
     dataloader = DataLoader(
         dataset,
@@ -109,7 +111,7 @@ def main() -> None:
     global_step = 0
     total_steps = len(dataloader) * args.epochs
     start_time = time.time()
-    progress_every = 10
+    progress_every = 100
     for epoch in range(args.epochs):
         captioner.train()
         if args.finetune_encoder:
@@ -120,7 +122,11 @@ def main() -> None:
         for images, captions in dataloader:
             images = images.to(accelerator.device, non_blocking=True)
             with torch.set_grad_enabled(args.finetune_encoder):
-                emb = vision_encoder(images)
+                if args.finetune_encoder:
+                    emb = vision_encoder(images)
+                else:
+                    with torch.no_grad():
+                        emb = vision_encoder(images)
             out = captioner(emb, captions=captions)
             loss = out.loss
 

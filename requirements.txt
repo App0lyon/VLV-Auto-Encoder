@@ -4,7 +4,6 @@ diffusers
 transformers
 accelerate
 safetensors
-datasets
 pillow
 tqdm
 # Optional: wandb

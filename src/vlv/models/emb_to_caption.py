@@ -14,7 +14,7 @@ class EmbeddingCaptioner(nn.Module):
         prefix_len: int = 77,
         prefix_dim: int = 1024,
         max_length: int = 64,
-        freeze_llm: bool = True,
+        freeze_llm: bool = False,
         use_lora: bool = False,
         lora_r: int = 8,
         lora_alpha: int = 16,
